@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 列印時隱藏互動控制項（App 已用 print:hidden）*/
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* 防止 iOS Safari 橫向溢出 */
+html, body { overscroll-behavior-y: none; }
