@@ -6,7 +6,7 @@
  *
  * 注意：cache 名稱必須與同 origin 的其他 App 區隔（同網域共用 Cache Storage）。
  */
-const CACHE = 'jam-water-tank-v1';
+const CACHE = 'jam-water-tank-v1.0.1';
 
 const PRECACHE = [
   './',
@@ -25,7 +25,14 @@ self.addEventListener('install', (event) => {
       .then((cache) => Promise.allSettled(
         PRECACHE.map((url) => cache.add(new Request(url, { cache: 'reload' })))
       ))
-      .then(() => self.skipWaiting())
+      // 不自動 skipWaiting：讓新 SW 進入 waiting 狀態，
+      // 由頁面偵測後詢問使用者，使用者同意才送 SKIP_WAITING 讓它接管。
+      // 首次安裝（沒有既有 active worker）才直接啟用。
+      .then(() => {
+          if (!self.registration.active) {
+              return self.skipWaiting();
+          }
+      })
   );
 });
 

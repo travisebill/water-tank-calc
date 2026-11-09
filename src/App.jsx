@@ -1,3 +1,118 @@
+
+// ============ 版本更新提示彈窗 ============
+// 偵測到新的 Service Worker 待命時，提示使用者主動更新
+function UpdatePrompt() {
+    const [visible, setVisible] = React.useState(false);
+    const [registration, setRegistration] = React.useState(null);
+    const [status, setStatus] = React.useState('');
+    const shownRef = React.useRef(false);
+    const reloadingRef = React.useRef(false);
+
+    React.useEffect(() => {
+        if (!('serviceWorker' in navigator)) return;
+
+        const show = (reg) => {
+            if (shownRef.current) return;
+            shownRef.current = true;
+            setRegistration(reg);
+            setVisible(true);
+        };
+
+        const trackWaiting = (reg) => {
+            if (shownRef.current) return;
+            if (reg.waiting) { show(reg); return; }
+            reg.addEventListener('updatefound', () => {
+                const installing = reg.installing;
+                if (!installing) return;
+                installing.addEventListener('statechange', () => {
+                    if ((installing.state === 'installed' || installing.state === 'activated')
+                        && navigator.serviceWorker.controller) {
+                        show(reg);
+                    }
+                });
+            });
+        };
+
+        const check = () => {
+            navigator.serviceWorker.getRegistration()
+                .then((reg) => {
+                    if (!reg) return;
+                    trackWaiting(reg);
+                    reg.update().catch(() => {});
+                })
+                .catch(() => {});
+        };
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (reloadingRef.current) return;
+            reloadingRef.current = true;
+            window.location.reload();
+        });
+
+        check();
+        const timer = setInterval(check, 30 * 60 * 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const doUpdate = () => {
+        setStatus('正在更新…');
+        if (registration && registration.waiting) {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        setTimeout(() => window.location.reload(), 600);
+    };
+
+    if (!visible) return null;
+    return (
+        <div
+            style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '1rem', background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(4px)'
+            }}
+        >
+            <div
+                style={{
+                    background: '#0f172a', border: '2px solid rgba(59,130,246,.45)',
+                    borderRadius: '1.5rem', padding: '1.5rem', maxWidth: '24rem',
+                    width: '100%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,.5)'
+                }}
+            >
+                <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>🆕</div>
+                <h3 style={{ color: '#fff', fontWeight: 900, fontSize: '1.125rem', margin: '0 0 .375rem' }}>
+                    有新版本可用
+                </h3>
+                <p style={{ color: 'rgba(191,219,254,.85)', fontSize: '.75rem', lineHeight: 1.6, margin: '0 0 1.25rem' }}>
+                    這個 App 已經更新囉！更新後會套用最新功能與修正。
+                </p>
+                <button
+                    onClick={doUpdate}
+                    style={{
+                        width: '100%', padding: '.75rem', borderRadius: '1rem', fontWeight: 900,
+                        fontSize: '.875rem', color: '#0f172a', border: 'none', marginBottom: '.5rem',
+                        background: 'linear-gradient(180deg,#93c5fd,#3b82f6,#1d4ed8)', cursor: 'pointer'
+                    }}
+                >
+                    立即更新並重新載入
+                </button>
+                <button
+                    onClick={() => setVisible(false)}
+                    style={{
+                        width: '100%', padding: '.625rem', borderRadius: '1rem', fontWeight: 700,
+                        fontSize: '.75rem', color: 'rgba(191,219,254,.75)', border: 'none',
+                        background: 'rgba(255,255,255,.06)', cursor: 'pointer'
+                    }}
+                >
+                    稍後再說
+                </button>
+                <p style={{ color: 'rgba(147,197,253,.65)', fontSize: '.625rem', margin: '.75rem 0 0', minHeight: '.875rem' }}>
+                    {status}
+                </p>
+            </div>
+        </div>
+    );
+}
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
@@ -582,6 +697,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28 font-sans text-slate-900 flex flex-col">
+      <UpdatePrompt />
       <header className="bg-black text-white px-4 py-3.5 sticky top-0 z-40 shadow-lg print:hidden">
         <div className="max-w-md mx-auto flex justify-between items-center mb-3 gap-2">
           <div className="flex items-center gap-2 min-w-0">
